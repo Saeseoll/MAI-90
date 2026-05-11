@@ -3,6 +3,8 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs/promises');
 const crypto = require('crypto');
+const os = require('os');
+const multer = require('multer');
 
 const { parseRecords } = require('../ingestion/parse-txt');
 const { validateRecord } = require('../ingestion/validate-record');
@@ -15,6 +17,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../ui')));
 
 const LOGS_PATH = process.env.LOGS_PATH || './logs';
+const upload = multer({ dest: os.tmpdir() });
 
 async function appendRejectedLog(entry) {
   const logFile = path.join(LOGS_PATH, 'rejected_log.json');
@@ -23,7 +26,6 @@ async function appendRejectedLog(entry) {
     existing = JSON.parse(await fs.readFile(logFile, 'utf8'));
   } catch (err) {
     if (err.code !== 'ENOENT') throw err;
-    // ENOENT: file doesn't exist yet — start fresh
   }
   existing.push(entry);
   await fs.writeFile(logFile, JSON.stringify(existing, null, 2));
@@ -33,17 +35,13 @@ async function quarantineRecord(raw, reason) {
   const quarantineDir = path.join(LOGS_PATH, 'quarantine');
   await fs.mkdir(quarantineDir, { recursive: true });
   const id = crypto.randomUUID();
-  const file = path.join(quarantineDir, `${id}.json`);
-  await fs.writeFile(file, JSON.stringify({ id, reason, raw, quarantined_at: new Date().toISOString() }, null, 2));
+  await fs.writeFile(
+    path.join(quarantineDir, `${id}.json`),
+    JSON.stringify({ id, reason, raw, quarantined_at: new Date().toISOString() }, null, 2)
+  );
 }
 
-// POST /api/ingest — body: { filePath: "..." }
-app.post('/api/ingest', async (req, res) => {
-  const { filePath } = req.body;
-  if (!filePath) {
-    return res.status(400).json({ error: 'filePath is required' });
-  }
-
+async function runIngestPipeline(filePath) {
   await fs.mkdir(LOGS_PATH, { recursive: true });
   await fs.mkdir(path.join(LOGS_PATH, 'quarantine'), { recursive: true });
 
@@ -51,7 +49,7 @@ app.post('/api/ingest', async (req, res) => {
   try {
     ({ records: rawRecords, quarantined: parseQuarantined } = await parseRecords(filePath));
   } catch (err) {
-    return res.status(400).json({ error: `cannot read file: ${err.message}` });
+    throw new Error(`cannot read file: ${err.message}`);
   }
 
   const counts = {
@@ -89,7 +87,30 @@ app.post('/api/ingest', async (req, res) => {
     if (inserted) counts.inserted++;
   }
 
-  res.json(counts);
+  return counts;
+}
+
+// POST /api/ingest — server-side file path
+app.post('/api/ingest', async (req, res) => {
+  const { filePath } = req.body;
+  if (!filePath) return res.status(400).json({ error: 'filePath is required' });
+  try {
+    res.json(await runIngestPipeline(filePath));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// POST /api/upload — browser file upload (multipart)
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'file is required' });
+  try {
+    res.json(await runIngestPipeline(req.file.path));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  } finally {
+    await fs.unlink(req.file.path).catch(() => {});
+  }
 });
 
 // GET /api/records
@@ -100,12 +121,9 @@ app.get('/api/records', (_req, res) => {
 // GET /api/status?subject=X
 app.get('/api/status', (req, res) => {
   const subject = req.query.subject;
-  if (!subject) {
-    return res.status(400).json({ error: 'subject query parameter is required' });
-  }
+  if (!subject) return res.status(400).json({ error: 'subject query parameter is required' });
   const records = listBySubject(subject);
-  const result = evaluateEquipment(subject, records);
-  res.json(result);
+  res.json(evaluateEquipment(subject, records));
 });
 
 const PORT = process.env.PORT || 3000;
