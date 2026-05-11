@@ -75,3 +75,10 @@ test('null input fails gracefully', () => {
   const result = validateRecord(null);
   assert.equal(result.valid, false);
 });
+
+test('NaN value fails (catches coercion errors from CSV extractor)', () => {
+  const r = makeRecord({ engineering_fact: { ...base.engineering_fact, value: NaN } });
+  const result = validateRecord(r);
+  assert.equal(result.valid, false);
+  assert.ok(result.reason.includes('engineering_fact.value'));
+});

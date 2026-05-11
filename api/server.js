@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const os = require('os');
 const multer = require('multer');
 
-const { parseRecords } = require('../ingestion/parse-txt');
+const { intakeFile } = require('../ingestion/intake-file');
 const { validateRecord } = require('../ingestion/validate-record');
 const { filterLicense } = require('../ingestion/license-filter');
 const { initDb, insertRecord, listRecords, listBySubject } = require('../db/client');
@@ -47,9 +47,9 @@ async function runIngestPipeline(filePath) {
 
   let rawRecords, parseQuarantined;
   try {
-    ({ records: rawRecords, quarantined: parseQuarantined } = await parseRecords(filePath));
+    ({ records: rawRecords, quarantined: parseQuarantined } = await intakeFile(filePath));
   } catch (err) {
-    throw new Error(`cannot read file: ${err.message}`);
+    throw err; // preserve message (unsupported type, file not found, etc.)
   }
 
   const counts = {

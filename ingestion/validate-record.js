@@ -28,7 +28,7 @@ function validateRecord(record) {
   if (engineering_fact?.value === undefined || engineering_fact?.value === null) {
     return { valid: false, reason: 'missing: engineering_fact.value' };
   }
-  if (typeof engineering_fact.value !== 'number') {
+  if (typeof engineering_fact.value !== 'number' || isNaN(engineering_fact.value)) {
     return { valid: false, reason: 'invalid: engineering_fact.value must be a number' };
   }
 

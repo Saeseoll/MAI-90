@@ -5,7 +5,7 @@
   "main": "api/server.js",
   "scripts": {
     "start": "node api/server.js",
-    "test": "node --test tests/validate-record.test.js && node --test tests/license-filter.test.js && node --test tests/rule-engine.test.js && node --test tests/db-client.test.js && node --test tests/ingest-pipeline.test.js"
+    "test": "node --test tests/validate-record.test.js && node --test tests/license-filter.test.js && node --test tests/rule-engine.test.js && node --test tests/db-client.test.js && node --test tests/ingest-pipeline.test.js && node --test tests/intake-file.test.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

@@ -313,11 +313,11 @@
   flex-direction:column; gap:12px; pointer-events:none;">
   <div style="font-size:44px;">📂</div>
   <div style="font-size:17px;color:#fff;letter-spacing:1px;">파일을 여기에 놓으세요</div>
-  <div style="font-size:11px;color:#b8d8b6;">.txt &middot; .json 지원</div>
+  <div style="font-size:11px;color:#b8d8b6;">JSON &middot; TXT &middot; CSV &middot; MD</div>
 </div>
 
 <!-- Hidden file input -->
-<input type="file" id="file-input" accept=".txt,.json" style="display:none"
+<input type="file" id="file-input" accept=".txt,.json,.csv,.md" style="display:none"
        aria-label="파일 선택">
 
 <header>
@@ -334,7 +334,7 @@
     <div id="drop-zone" role="button" tabindex="0" aria-label="파일 선택 또는 드래그 앤 드롭">
       <div class="dz-icon">📂</div>
       <div class="dz-text">파일을 끌어다 놓거나 클릭해서 선택하세요</div>
-      <div class="dz-sub">.txt &middot; .json</div>
+      <div class="dz-sub">JSON &middot; TXT &middot; CSV &middot; MD</div>
     </div>
 
     <div id="file-chip" aria-label="선택된 파일">

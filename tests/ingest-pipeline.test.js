@@ -9,7 +9,7 @@ const testLogsPath = path.join(os.tmpdir(), `mai90-logs-${Date.now()}`);
 process.env.DB_PATH = testDbPath;
 process.env.LOGS_PATH = testLogsPath;
 
-const { parseRecords } = require('../ingestion/parse-txt');
+const { intakeFile } = require('../ingestion/intake-file');
 const { validateRecord } = require('../ingestion/validate-record');
 const { filterLicense } = require('../ingestion/license-filter');
 const { initDb, insertRecord } = require('../db/client');
@@ -45,7 +45,7 @@ before(async () => {
 });
 
 async function runPipeline(filePath) {
-  const { records: rawRecords, quarantined: parseQuarantined } = await parseRecords(filePath);
+  const { records: rawRecords, quarantined: parseQuarantined } = await intakeFile(filePath);
   const counts = { processed: rawRecords.length + parseQuarantined, inserted: 0, quarantined: parseQuarantined, held: 0, rejected: 0 };
 
   for (const raw of rawRecords) {
