@@ -1,0 +1,5 @@
+.env
+db/mai90.db
+node_modules/
+logs/quarantine/*
+logs/rejected_log.json

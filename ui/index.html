@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MAI-90</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 14px;
+      background: #f5f5f0;
+      color: #1a1a1a;
+      padding: 24px;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 2px solid #1a1a1a;
+      padding-bottom: 8px;
+      margin-bottom: 24px;
+    }
+
+    header h1 { font-size: 18px; letter-spacing: 2px; }
+    header p  { font-size: 12px; color: #555; margin-top: 4px; }
+
+    section { margin-bottom: 24px; }
+
+    label { display: block; font-size: 12px; margin-bottom: 4px; color: #444; }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 8px;
+      border: 1px solid #999;
+      background: #fff;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 14px;
+      border: 1px solid #1a1a1a;
+      background: #1a1a1a;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button:hover { background: #333; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #bbb;
+      margin: 24px 0;
+    }
+
+    #result {
+      display: none;
+      border: 1px solid #bbb;
+      padding: 16px;
+      background: #fff;
+    }
+
+    .field { display: flex; margin-bottom: 6px; }
+    .field-key {
+      min-width: 110px;
+      color: #555;
+    }
+    .field-value { flex: 1; }
+
+    .status-tag {
+      display: inline-block;
+      font-weight: bold;
+      padding: 1px 8px;
+      letter-spacing: 1px;
+    }
+
+    .status-GREEN  { color: #fff; background: #2d9e2d; }
+    .status-YELLOW { color: #1a1a1a; background: #e6a817; }
+    .status-RED    { color: #fff; background: #cc2222; }
+    .status-UNKNOWN { color: #1a1a1a; background: transparent; border: 1px solid #777; }
+
+    .evidence { font-size: 12px; color: #555; word-break: break-all; }
+
+    #message {
+      font-size: 12px;
+      margin-top: 8px;
+      color: #555;
+    }
+
+    #ingest-result {
+      font-size: 12px;
+      margin-top: 8px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>MAI-90</h1>
+  <p>Maintenance &amp; Analysis Intelligence &mdash; industrial safety support</p>
+</header>
+
+<section>
+  <label>데이터 파일 경로 (TXT)</label>
+  <div class="row">
+    <input type="text" id="file-path" placeholder="예: C:\data\records.txt">
+    <button onclick="ingest()">수집</button>
+  </div>
+  <div id="ingest-result"></div>
+</section>
+
+<hr class="divider">
+
+<section>
+  <label>장비명으로 상태 조회</label>
+  <div class="row">
+    <input type="text" id="subject" placeholder="예: Cooling pump #3">
+    <button onclick="checkStatus()">조회</button>
+  </div>
+  <div id="message"></div>
+</section>
+
+<div id="result">
+  <div class="field">
+    <span class="field-key">Equipment:</span>
+    <span class="field-value" id="r-equipment"></span>
+  </div>
+  <div class="field">
+    <span class="field-key">Status:</span>
+    <span class="field-value"><span id="r-status" class="status-tag"></span></span>
+  </div>
+  <div class="field">
+    <span class="field-key">Action:</span>
+    <span class="field-value" id="r-action"></span>
+  </div>
+  <div class="field">
+    <span class="field-key">Reason:</span>
+    <span class="field-value" id="r-reason"></span>
+  </div>
+  <div class="field">
+    <span class="field-key">Source:</span>
+    <span class="field-value evidence" id="r-evidence"></span>
+  </div>
+</div>
+
+<script>
+  async function ingest() {
+    const filePath = document.getElementById('file-path').value.trim();
+    const out = document.getElementById('ingest-result');
+    if (!filePath) { out.textContent = '파일 경로를 입력하세요.'; return; }
+
+    out.textContent = '처리 중...';
+    try {
+      const res = await fetch('/api/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath }),
+      });
+      const data = await res.json();
+      if (!res.ok) { out.textContent = `오류: ${data.error}`; return; }
+      out.textContent =
+        `완료 — 처리: ${data.processed}건 | 저장: ${data.inserted}건 | 격리: ${data.quarantined}건 | 보류: ${data.held}건 | 거부: ${data.rejected}건`;
+    } catch (e) {
+      out.textContent = `오류: ${e.message}`;
+    }
+  }
+
+  async function checkStatus() {
+    const subject = document.getElementById('subject').value.trim();
+    const msg = document.getElementById('message');
+    const result = document.getElementById('result');
+    if (!subject) { msg.textContent = '장비명을 입력하세요.'; return; }
+
+    msg.textContent = '조회 중...';
+    result.style.display = 'none';
+    try {
+      const res = await fetch(`/api/status?subject=${encodeURIComponent(subject)}`);
+      const data = await res.json();
+      if (!res.ok) { msg.textContent = `오류: ${data.error}`; return; }
+
+      document.getElementById('r-equipment').textContent = data.equipment;
+
+      const statusEl = document.getElementById('r-status');
+      statusEl.textContent = data.status;
+      statusEl.className = `status-tag status-${data.status}`;
+
+      document.getElementById('r-action').textContent = data.action;
+      document.getElementById('r-reason').textContent = data.reason;
+      document.getElementById('r-evidence').textContent = (data.evidence || []).join(', ') || '—';
+
+      msg.textContent = '';
+      result.style.display = 'block';
+    } catch (e) {
+      msg.textContent = `오류: ${e.message}`;
+    }
+  }
+
+  document.getElementById('file-path').addEventListener('keydown', e => { if (e.key === 'Enter') ingest(); });
+  document.getElementById('subject').addEventListener('keydown', e => { if (e.key === 'Enter') checkStatus(); });
+</script>
+
+</body>
+</html>
